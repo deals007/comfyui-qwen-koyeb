@@ -21,6 +21,7 @@ RUN pip install --index-url https://download.pytorch.org/whl/cu121 \
 # ComfyUI
 RUN git clone https://github.com/comfyanonymous/ComfyUI.git /app/ComfyUI
 WORKDIR /app/ComfyUI
+
 RUN pip install -r requirements.txt
 RUN pip install accelerate safetensors huggingface-hub pillow einops
 
@@ -32,6 +33,23 @@ RUN rm -f /app/ComfyUI/comfy_extras/nodes_audio.py \
 # Patch Qwen nodes (small download, fine during build)
 RUN wget -O /app/ComfyUI/comfy_extras/nodes_qwen.py \
   "https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/fixed-textencode-node/nodes_qwen.v2.py"
+
+# -----------------------------
+# Install missing custom nodes
+# -----------------------------
+WORKDIR /app/ComfyUI/custom_nodes
+
+# rgthree nodes (Anything Everywhere3 + Image Comparer)
+RUN git clone https://github.com/rgthree/rgthree-comfy.git
+
+# Ultimate SD Upscale
+RUN git clone https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git
+
+# "easy" / utility scripts (includes many helper nodes; commonly used for cleanup-style nodes)
+RUN git clone https://github.com/pythongosssss/ComfyUI-Custom-Scripts.git
+
+# Go back
+WORKDIR /app/ComfyUI
 
 # Startup script (downloads the big model at runtime, not during build)
 COPY start.sh /app/start.sh
