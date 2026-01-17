@@ -1,20 +1,26 @@
 #!/usr/bin/env bash
 set -e
 
-MODEL_URL="https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/Qwen-Rapid-AIO-v2.safetensors?download=true"
-MODEL_PATH="/app/ComfyUI/models/checkpoints/Qwen-Rapid-AIO-v2.safetensors"
+: "${PORT:=8000}"
+: "${HF_HOME:=/tmp/hf}"
 
-mkdir -p /app/ComfyUI/models/checkpoints
+# Default SFW checkpoint (Rapid-AIO v2)
+: "${MODEL_URL:=https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/Qwen-Rapid-AIO-v2.safetensors?download=true}"
+: "${MODEL_FILE:=Qwen-Rapid-AIO-v2.safetensors}"
+
+MODEL_DIR="/app/ComfyUI/models/checkpoints"
+MODEL_PATH="${MODEL_DIR}/${MODEL_FILE}"
+
+mkdir -p "${MODEL_DIR}"
 mkdir -p "${HF_HOME}"
 
-# Download model only if missing
 if [ ! -f "${MODEL_PATH}" ]; then
-  echo "Downloading Rapid-AIO checkpoint to ${MODEL_PATH} ..."
+  echo "Downloading checkpoint to ${MODEL_PATH} ..."
   wget -O "${MODEL_PATH}.tmp" "${MODEL_URL}"
   mv "${MODEL_PATH}.tmp" "${MODEL_PATH}"
   echo "Download complete."
 else
-  echo "Model already present: ${MODEL_PATH}"
+  echo "Checkpoint already present: ${MODEL_PATH}"
 fi
 
 cd /app/ComfyUI
