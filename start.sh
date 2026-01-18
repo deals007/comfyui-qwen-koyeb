@@ -1,47 +1,44 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-echo "---- START.SH DEBUG ----"
-echo "PORT=${PORT:-8000}"
-echo "HF_HOME=${HF_HOME:-/tmp/hf}"
-echo "MODEL_URL(before)=${MODEL_URL:-<unset>}"
-echo "MODEL_FILE(before)=${MODEL_FILE:-<unset>}"
-echo "------------------------"
-
 : "${PORT:=8000}"
 : "${HF_HOME:=/tmp/hf}"
 
-# FORCE these values (do NOT allow env override)
-MODEL_URL="https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/v7/Qwen-Rapid-AIO-NSFW-v7.1.safetensors?download=true"
-MODEL_FILE="Qwen-Rapid-AIO-NSFW-v7.1.safetensors"
-
 MODEL_DIR="/app/ComfyUI/models/checkpoints"
-MODEL_PATH="${MODEL_DIR}/${MODEL_FILE}"
-
 mkdir -p "${MODEL_DIR}" "${HF_HOME}"
 
-echo "Using MODEL_URL=${MODEL_URL}"
-echo "Using MODEL_FILE=${MODEL_FILE}"
-echo "Target path: ${MODEL_PATH}"
+MODEL_URL="https://huggingface.co/Phr00t/Qwen-Image-Edit-Rapid-AIO/resolve/main/v7/Qwen-Rapid-AIO-NSFW-v7.1.safetensors?download=true"
+MODEL_FILE="Qwen-Rapid-AIO-NSFW-v7.1.safetensors"
+MODEL_PATH="${MODEL_DIR}/${MODEL_FILE}"
+TMP_PATH="${MODEL_PATH}.part"
 
-# Delete any wrong model to avoid confusion
-if [ -f "${MODEL_DIR}/Qwen-Rapid-AIO-v2.safetensors" ]; then
-  echo "Removing old checkpoint: ${MODEL_DIR}/Qwen-Rapid-AIO-v2.safetensors"
-  rm -f "${MODEL_DIR}/Qwen-Rapid-AIO-v2.safetensors"
-fi
+download_model () {
+  if [ -f "${MODEL_PATH}" ]; then
+    echo "Model already present: ${MODEL_PATH}"
+    return 0
+  fi
 
-if [ ! -f "${MODEL_PATH}" ]; then
-  echo "Downloading checkpoint to ${MODEL_PATH} ..."
-  wget -O "${MODEL_PATH}.tmp" "${MODEL_URL}"
-  mv "${MODEL_PATH}.tmp" "${MODEL_PATH}"
-  echo "Download complete."
-else
-  echo "Checkpoint already present: ${MODEL_PATH}"
-fi
+  echo "Downloading model in background..."
+  echo "URL: ${MODEL_URL}"
+  echo "TMP: ${TMP_PATH}"
 
-echo "Checkpoints now:"
-ls -lh "${MODEL_DIR}"
+  # resume download into .part
+  wget -c --tries=50 --timeout=30 --waitretry=5 -O "${TMP_PATH}" "${MODEL_URL}"
 
+  mv "${TMP_PATH}" "${MODEL_PATH}"
+  echo "Download complete: ${MODEL_PATH}"
+  ls -lh "${MODEL_DIR}"
+  echo "NOTE: Refresh ComfyUI page (or restart service) to see the new checkpoint in dropdown."
+}
+
+# Start ComfyUI immediately so health checks pass
 cd /app/ComfyUI
 echo "Starting ComfyUI on 0.0.0.0:${PORT}"
-python3 main.py --listen 0.0.0.0 --port "${PORT}"
+python3 main.py --listen 0.0.0.0 --port "${PORT}" &
+COMFY_PID=$!
+
+# Download in background
+download_model &
+
+# Keep container running
+wait "${COMFY_PID}"
