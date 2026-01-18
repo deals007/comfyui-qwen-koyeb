@@ -3,11 +3,15 @@ FROM nvidia/cuda:12.1.1-cudnn8-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_NO_CACHE_DIR=1 \
     HF_HOME=/tmp/hf \
     PORT=8000
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     git python3 python3-pip wget ca-certificates \
+    curl \
+    libgl1 \
+    libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -35,21 +39,26 @@ WORKDIR /app/ComfyUI/custom_nodes
 # rgthree (Anything Everywhere3 + Image Comparer)
 RUN git clone https://github.com/rgthree/rgthree-comfy.git
 
-# Ultimate SD Upscale (clone recursive is recommended)
+# Ultimate SD Upscale
 RUN git clone --recursive https://github.com/ssitu/ComfyUI_UltimateSDUpscale.git
 
-# ComfyUI-Easy-Use (easy cleanGpuUsed etc.)
+# ComfyUI-Easy-Use
 RUN git clone https://github.com/yolain/ComfyUI-Easy-Use.git
 
-# Install any per-node requirements if present (won't fail build if none)
+# Install any per-node requirements if present
 RUN pip install -r /app/ComfyUI/custom_nodes/rgthree-comfy/requirements.txt || true
 RUN pip install -r /app/ComfyUI/custom_nodes/ComfyUI_UltimateSDUpscale/requirements.txt || true
 RUN pip install -r /app/ComfyUI/custom_nodes/ComfyUI-Easy-Use/requirements.txt || true
 
 WORKDIR /app/ComfyUI
 
+# Copy startup + workflow into the image
 COPY start.sh /app/start.sh
-RUN chmod +x /app/start.sh
+COPY workflow.json /app/workflow.json
+
+RUN chmod +x /app/start.sh \
+ && mkdir -p /app/ComfyUI/user/default/workflows \
+ && cp /app/workflow.json /app/ComfyUI/user/default/workflows/Qwen_Rapid_AIO_v7_two_images_edit.json
 
 EXPOSE 8000
 CMD ["/app/start.sh"]
